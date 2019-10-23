@@ -24,7 +24,7 @@ coverage.txt
 /release
 /debug/
 /release/
-/7dtd-json-api
+7dtd-json-api
 
 # Packr
 /packrd/
