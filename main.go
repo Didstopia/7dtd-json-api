@@ -46,6 +46,11 @@ func (server *Server) Write(b []byte) (n int, err error) {
 
 	// TODO: Figure out a way to more easily parse incoming data etc.
 
+	// TODO: Execute "getgamepref" and parse "GamePref.BloodMoonFrequency = 7",
+	//       then combine that with "gettime" to easily calculate the horde day/ETA to horde
+
+	// TODO: Figure out how to exit after calling exit (or after the telnet connection ends?)
+
 	// Handle message building
 	if endOfLine {
 		// Guard against empty strings
