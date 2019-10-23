@@ -11,6 +11,9 @@ coverage.txt
 ### Go Vendor Packages ###
 #vendor/
 
+# Environment variables
+.env
+
 # Other
 /go/
 /build/
