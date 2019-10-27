@@ -16,7 +16,7 @@ func main() {
 	}
 
 	// Create a new API client and start it
-	api := api.New()
+	api := api.New(server)
 	if err := api.Start(); err != nil {
 		log.Fatal("Failed to start API server: ", err)
 	}

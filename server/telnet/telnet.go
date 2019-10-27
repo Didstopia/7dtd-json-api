@@ -2,7 +2,6 @@ package telnet
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -12,6 +11,17 @@ import (
 	tel "github.com/reiver/go-telnet"
 )
 
+type State string
+
+const (
+	Connecting     State = "Connecting"
+	Connected      State = "Connected"
+	Authenticating State = "Authenticating"
+	Authenticated  State = "Authenticated"
+	Idle           State = "Idle"
+	Exiting        State = "Exiting"
+)
+
 // Telnet client specific to the game server
 type Telnet struct {
 	hostname    string
@@ -19,6 +29,9 @@ type Telnet struct {
 	password    string
 	connection  *tel.Conn
 	lastMessage string
+
+	Messages chan string
+	State    State
 }
 
 // New returns a pointer to a telnet client
@@ -40,25 +53,27 @@ func New() *Telnet {
 	// Load the password but don't verify it, as it's not required
 	telnet.password = os.Getenv("PASSWORD")
 
+	// Create a channel for the incoming messages
+	telnet.Messages = make(chan string)
+
 	return telnet
 }
 
 // Connect to the telnet server
 func (telnet *Telnet) Connect() error {
+	telnet.SetState(Connecting)
+
 	// TODO: Run telnet client on a separate thread
 	// Attempt to connect to the telnet server
 	connectionString := telnet.hostname + ":" + telnet.port
-	log.Println("Connecting to " + connectionString + "..")
 	connection, err := tel.DialTo(connectionString)
-	// err := telnet.DialToAndCall(connectionString, telnetClient)
 	if err != nil {
 		log.Fatal("Failed to connect to telnet server: ", err)
 	}
 	telnet.connection = connection
-	// defer connection.Close()
-	log.Println("Connection open!")
+	telnet.SetState(Connected)
 
-	// TODO: Read data from the telnet server
+	// Read data from the telnet server
 	go func(writer io.Writer, reader io.Reader) {
 		var buffer [1]byte
 		p := buffer[:]
@@ -82,6 +97,11 @@ func (telnet *Telnet) Disconnect() error {
 }
 
 func (telnet *Telnet) Write(b []byte) (n int, err error) {
+	// Ignore any data i exiting
+	if telnet.State == Exiting {
+		return
+	}
+
 	// Parse the incoming data as as string (technically it's always a single byte/character)
 	dataString := string(b)
 
@@ -95,22 +115,37 @@ func (telnet *Telnet) Write(b []byte) (n int, err error) {
 	// Detect the end of line (null terminator, new line or return)
 	endOfLine := dataString == "\x00" || dataString == "\n" || dataString == "\r"
 
-	// TODO: Figure out a way to more easily parse incoming data etc.
-
-	// TODO: Execute "getgamepref" and parse "GamePref.BloodMoonFrequency = 7",
-	//       then combine that with "gettime" to easily calculate the horde day/ETA to horde
-
-	// TODO: Figure out how to exit after calling exit (or after the telnet connection ends?)
-
 	// Handle message building
 	if endOfLine {
 		// Guard against empty strings
 		if len(telnet.lastMessage) > 0 {
-			fmt.Printf("Message received: %#v\n", telnet.lastMessage)
-			telnet.Authenticate()
-			telnet.ListPlayers()
-			telnet.GetTime()
+			// fmt.Printf("Message received: %#v\n", telnet.lastMessage)
+
+			// Handle connecting
+			if telnet.State == Connecting {
+				if strings.Contains(telnet.lastMessage, "Connected with 7DTD server.") {
+					telnet.SetState(Connected)
+				}
+			}
+
+			// Handle authentication
+			if telnet.State == Connected {
+				if strings.Contains(telnet.lastMessage, "Please enter password:") {
+					telnet.Authenticate()
+				}
+			} else if telnet.State == Authenticating {
+				if strings.Contains(telnet.lastMessage, "Logon successful.") {
+					telnet.SetState(Authenticated)
+				}
+			} else if telnet.State == Authenticated {
+				telnet.SetState(Idle)
+			}
+
+			// TODO: Execute "getgamepref" and parse "GamePref.BloodMoonFrequency = 7",
+			//       then combine that with "gettime" to easily calculate the horde day/ETA to horde
+
 			// telnet.Exit()
+			telnet.Messages <- telnet.lastMessage
 			telnet.lastMessage = ""
 		}
 	} else {
@@ -121,43 +156,33 @@ func (telnet *Telnet) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
+func (telnet *Telnet) SetState(state State) {
+	log.Println("Telnet state changing from", telnet.State, "to", state)
+	telnet.State = state
+}
+
 // Authenticate checks for a password request and sends the password
 func (telnet *Telnet) Authenticate() {
-	if err := telnet.sendCommandIfContains(telnet.password, "Please enter password:"); err != nil {
+	telnet.SetState(Authenticating)
+	if err := telnet.SendCommand(telnet.password); err != nil {
 		log.Fatal("Failed to authenticate: ", err)
-	}
-}
-
-// ListPlayers will attempt to send the list players command to the server
-func (telnet *Telnet) ListPlayers() {
-	if err := telnet.sendCommandIfContains("listplayers", "Press 'exit' to end session."); err != nil {
-		log.Fatal("Failed to list players: ", err)
-	}
-}
-
-// GetTime will attempt to send the get time command to the server
-func (telnet *Telnet) GetTime() {
-	if err := telnet.sendCommandIfContains("gettime", "Press 'exit' to end session."); err != nil {
-		log.Fatal("Failed to get time: ", err)
 	}
 }
 
 // Exit will send the exit command to the server
 func (telnet *Telnet) Exit() {
-	if err := telnet.sendCommandIfContains("exit", "Executing command 'gettime'"); err != nil {
+	telnet.SetState(Exiting)
+	if err := telnet.SendCommand("exit"); err != nil {
 		log.Fatal("Failed to exit: ", err)
 	}
+
+	// TODO: Obviously don't do this here
+	os.Exit(0)
 }
 
-func (telnet *Telnet) sendCommandIfContains(command string, contains string) error {
-	if strings.Contains(telnet.lastMessage, contains) {
-		return telnet.sendCommand(command)
-	}
-	return nil
-}
-
-func (telnet *Telnet) sendCommand(command string) error {
-	log.Println("Sending command", "'"+command+"'"+" to the server..")
+// SendCommand sends a command to the server
+func (telnet *Telnet) SendCommand(command string) error {
+	// log.Println("Sending command", "'"+command+"'"+" to the server..")
 	p := []byte(command + "\r")
 	if _, err := oi.LongWrite(telnet.connection, p); err != nil {
 		return err
