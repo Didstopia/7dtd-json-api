@@ -13,42 +13,6 @@ type GameTime struct {
 	Minute int `json:"minute"`
 }
 
-func (time *GameTime) Subtract(t *GameTime) {
-	log.Println("Subtract start:", time, t)
-
-	var days uint = 0
-	var hours uint = 0
-	var minutes uint = 0
-
-	if time.Day > t.Day {
-		days = uint(time.Day) - uint(t.Day)
-	} else {
-		days = uint(t.Day) - uint(time.Day)
-	}
-
-	// FIXME: This doesn't take into account 24 hours
-	if time.Hour > t.Hour {
-		hours = uint(time.Hour) - uint(t.Hour)
-	} else {
-		hours = uint(t.Hour) - uint(time.Hour)
-	}
-
-	// FIXME: This doesn't take into account 60 minutes
-	if time.Minute > t.Minute {
-		minutes = uint(time.Minute) - uint(t.Minute)
-	} else {
-		minutes = uint(t.Minute) - uint(time.Minute)
-	}
-
-	// TODO: Adjust for negatives values
-
-	log.Println("Subtract result:", days, hours, minutes)
-
-	time.Day = int(days)
-	time.Hour = int(hours)
-	time.Minute = int(minutes)
-}
-
 type BloodMoon struct {
 	Frequency int       `json:"frequency"`
 	Last      *GameTime `json:"last"`
@@ -136,15 +100,15 @@ func (world *World) ParseTime(time string) bool {
 
 	// Update the blood moon information
 	if world.Time != nil {
-		// TODO: Update the last blood moon
+		// Update the last blood moon
 		world.BloodMoon.Last = &GameTime{world.Time.Day - world.Time.Day%world.BloodMoon.Frequency, 22, 0}
 
 		// Update the next blood moon
 		world.BloodMoon.Next = &GameTime{world.Time.Day + (world.BloodMoon.Frequency - (world.Time.Day % world.BloodMoon.Frequency)), 22, 0}
 
+		// FIXME: Not implemented
 		// Update the blood moon countdown
 		world.BloodMoon.Countdown = &GameTime{world.Time.Day, world.Time.Hour, world.Time.Minute}
-		world.BloodMoon.Countdown.Subtract(world.BloodMoon.Next)
 	}
 
 	return true
@@ -179,8 +143,15 @@ func (world *World) ParsePreference(preference string) bool {
 
 	// Update the next blood moon
 	if world.Time != nil {
-		// TODO: Also update Last and Countdown
+		// Update the last blood moon
+		world.BloodMoon.Last = &GameTime{world.Time.Day - world.Time.Day%world.BloodMoon.Frequency, 22, 0}
+
+		// Update the next blood moon
 		world.BloodMoon.Next = &GameTime{world.Time.Day + (world.BloodMoon.Frequency - (world.Time.Day % world.BloodMoon.Frequency)), 22, 0}
+
+		// FIXME: Not implemented
+		// Update the blood moon countdown
+		world.BloodMoon.Countdown = &GameTime{world.Time.Day, world.Time.Hour, world.Time.Minute}
 	}
 
 	return false
