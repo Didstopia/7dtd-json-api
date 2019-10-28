@@ -12,6 +12,8 @@ jobs:
     - uses: actions/checkout@v1
       with:
         fetch-depth: 1
+    - name: Login to GitHub Package Registry
+      run: docker login docker.pkg.github.com -u $DOCKER_LOGIN -p $DOCKER_TOKEN
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag docker.pkg.github.com/didstopia/7dtd-json-api/7dtd-json-api:latest
     - name: Publish the Docker image
