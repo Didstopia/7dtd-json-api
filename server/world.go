@@ -7,12 +7,6 @@ import (
 	"strings"
 )
 
-type GameTime struct {
-	Day    int `json:"day"`
-	Hour   int `json:"hour"`
-	Minute int `json:"minute"`
-}
-
 type BloodMoon struct {
 	Frequency int       `json:"frequency"`
 	Last      *GameTime `json:"last"`
