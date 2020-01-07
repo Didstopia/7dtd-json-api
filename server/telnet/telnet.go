@@ -14,6 +14,7 @@ import (
 type State string
 
 const (
+	Starting       State = "Starting"
 	Connecting     State = "Connecting"
 	Connected      State = "Connected"
 	Authenticating State = "Authenticating"
@@ -37,6 +38,9 @@ type Telnet struct {
 // New returns a pointer to a telnet client
 func New() *Telnet {
 	telnet := &Telnet{}
+
+	// Set the initial state
+	telnet.State = Starting
 
 	// Verify that we have a valid server
 	telnet.hostname = os.Getenv("SERVER")

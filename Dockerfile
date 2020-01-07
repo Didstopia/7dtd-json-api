@@ -27,5 +27,8 @@ ENV SERVER  "localhost"
 ENV PORT    "8081"
 ENV PASSWORD ""
 
+# Expose ports
+EXPOSE 8080
+
 # Run the binary
 ENTRYPOINT ["/go/bin/7dtd-json-api"]
